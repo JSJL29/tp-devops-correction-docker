@@ -19,13 +19,10 @@ jobs:
           distribution: 'temurin'
 
       - name: Build and test with Maven
-        run: >
-          mvn -B verify sonar:sonar 
-          -Dsonar.projectKey=TON_PROJECT_KEY
-          -Dsonar.organization=TON_ORGA
-          -Dsonar.host.url=https://sonarcloud.io 
-          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-          --file simple-api/pom.xml
+        run: 
+          mvn clean verify --file simple-api/pom.xml
+          mvn -B verify sonar:sonar -Dsonar.projectKey=JSJL29_tp-devops-correction-docker -Dsonar.organization=jsjl29 -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=${{ secrets.SONAR_TOKEN }}  --file ./simple-api/pom.xml
+
 
   # DEUXIÈME JOB : On build les images Docker
   build-and-push-docker-image:
