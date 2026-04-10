@@ -1,29 +1,25 @@
-name: CI devops 2026
+name: CI devops 2025
 on:
-  # On lance le job sur les branches main et develop
   push:
     branches: 
-      - main
-  pull_request:
-    branches: 
+      
+main
+pull_request:
 
 jobs:
-  test-backend: 
+  test-backend:
     runs-on: ubuntu-24.04
     steps:
-      # Récupération du code source
-      - uses: actions/checkout@v4
+      
+uses: actions/checkout@v4
 
-      # Configuration du JDK 21
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin' # 'temurin' est la distribution standard recommandée
-          cache: 'maven'         # Optionnel : accélère les futurs builds en cachant les dépendances
+      
+name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
 
-      # Build de l'application
-      - name: Build and test with Maven
-        # On utilise -f pour pointer vers le pom.xml si tu es dans un sous-dossier
-        # ou simplement mvn clean verify si tu es à la racine
-        run: mvn clean verify
+      
+name: Build and test with Maven
+      run: mvn clean verify --file ./simple-api/pom.xml
