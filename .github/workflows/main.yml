@@ -2,23 +2,24 @@ name: CI devops 2025
 on:
   push:
     branches: 
-      main
-pull_request:
+      - main
+      - develop
+  pull_request:
 
 jobs:
   test-backend:
     runs-on: ubuntu-24.04
     steps:
-      
-uses: actions/checkout@v4
+      # 1. On récupère le code
+      - uses: actions/checkout@v4
 
-      
-name: Set up JDK 21
-uses: actions/setup-java@v4
-with:
-  java-version: '21'
-  distribution: 'temurin'
+      # 2. On installe Java
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
 
-      
-name: Build and test with Maven
-run: mvn clean verify --file ./simple-api/pom.xml
+      # 3. On lance le build dans le bon dossier
+      - name: Build and test with Maven
+        run: mvn clean verify --file simple-api/pom.xml
