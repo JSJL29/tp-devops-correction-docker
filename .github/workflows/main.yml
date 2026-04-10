@@ -3,22 +3,53 @@ on:
   push:
     branches: 
       - main
+      - develop
   pull_request:
 
 jobs:
+  # PREMIER JOB : On teste le code Java
   test-backend:
     runs-on: ubuntu-24.04
     steps:
-      # 1. On récupère le code
       - uses: actions/checkout@v4
 
-      # 2. On installe Java
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
 
-      # 3. On lance le build dans le bon dossier
       - name: Build and test with Maven
         run: mvn clean verify --file simple-api/pom.xml
+
+  # DEUXIÈME JOB : On build les images Docker
+  build-and-push-docker-image:
+    needs: test-backend # Attends que les tests passent
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+      - name: Build image and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./simple-api
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest
+
+      - name: Build image and push database
+        uses: docker/build-push-action@v6
+        with:
+          context: ./database
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest
+
+      - name: Build image and push httpd
+        uses: docker/build-push-action@v6
+        with:
+          context: ./httpd
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
