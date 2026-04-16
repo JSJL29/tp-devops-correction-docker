@@ -4,16 +4,40 @@ on:
     branches: 
       - main
       - develop
-    tags:
-      - 'v*' # Déclenche la partie CD quand tu crées un tag (ex: v1.0)
   pull_request:
 
 permissions:
   contents: write
 
 jobs:
+  # --- NOUVEAU JOB : Calcul de la version ---
+  compute-version:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.versioning.outputs.NEW_TAG }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Important pour voir les tags
+      - id: versioning
+        run: |
+          # Récupère le dernier tag, sinon initialise à v0.0
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0")
+          echo "Dernier tag trouvé : $LATEST_TAG"
+          
+          # Extraction de la version majeure (ex: v1.0 -> 1)
+          VERSION=$(echo $LATEST_TAG | sed 's/v//')
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          
+          # Incrémentation de la majeure et remise à zéro de la mineure
+          NEW_MAJOR=$((MAJOR + 1))
+          NEW_TAG="v$NEW_MAJOR.0"
+          
+          echo "Nouvelle version calculée : $NEW_TAG"
+          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_OUTPUT
+
   # ---------------------------------------------------------
-  # PARTIE 1 : CI (Toujours exécutée)
+  # PARTIE 1 : CI - TEST ET QUALITÉ
   # ---------------------------------------------------------
   test-backend:
     runs-on: ubuntu-24.04
@@ -48,20 +72,17 @@ jobs:
             --file simple-api/pom.xml
 
   # ---------------------------------------------------------
-  # PARTIE 2 : CD (Uniquement quand tu pousses un TAG v...)
+  # PARTIE 2 : CD - PUBLICATION (Uniquement sur MAIN)
   # ---------------------------------------------------------
-  build-and-push-docker:
-    needs: sonar-analysis
-    # Condition : Ne tourne que si on a créé un tag commençant par 'v'
-    if: startsWith(github.ref, 'refs/tags/v')
+  
+  build-and-push-backend:
+    needs: [sonar-analysis, compute-version]
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      
       - name: Login to DockerHub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-      
-      # Build du Backend avec ton tag Git
       - name: Build and push Backend
         uses: docker/build-push-action@v6
         with:
@@ -69,9 +90,16 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:${{ github.ref_name }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:${{ needs.compute-version.outputs.new_version }}
 
-      # Build de la Database avec ton tag Git
+  build-and-push-database:
+    needs: [sonar-analysis, compute-version]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
       - name: Build and push Database
         uses: docker/build-push-action@v6
         with:
@@ -79,9 +107,16 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:${{ github.ref_name }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:${{ needs.compute-version.outputs.new_version }}
 
-      # Build du serveur HTTP avec ton tag Git
+  build-and-push-httpd:
+    needs: [sonar-analysis, compute-version]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
       - name: Build and push HTTPD
         uses: docker/build-push-action@v6
         with:
@@ -89,4 +124,24 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:${{ github.ref_name }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:${{ needs.compute-version.outputs.new_version }}
+
+  # ---------------------------------------------------------
+  # PARTIE 3 : TAGGING GITHUB
+  # ---------------------------------------------------------
+  create-git-tag:
+    needs: [compute-version, build-and-push-backend, build-and-push-database, build-and-push-httpd]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create Git Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ needs.compute-version.outputs.new_version }}
+          git push origin ${{ needs.compute-version.outputs.new_version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
