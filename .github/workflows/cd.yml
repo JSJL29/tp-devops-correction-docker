@@ -70,3 +70,4 @@ jobs:
           git push origin ${{ needs.compute-version.outputs.new_version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
