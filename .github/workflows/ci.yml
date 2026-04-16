@@ -11,6 +11,7 @@ permissions:
   contents: write
   pull-requests: write
   actions: write
+  workflows: write
 
 jobs:
   test-backend:
@@ -59,6 +60,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Rollback Branch and Revert
         id: revert_step
