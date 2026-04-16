@@ -18,8 +18,15 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
-      - name: Build and test with Maven
-        run: mvn clean verify --file simple-api/pom.xml
+      - """name: Build and test with Maven
+        run: mvn clean verify --file simple-api/pom.xml"""
+        - name: Build and test with Maven (SIMULATION ERREUR)
+        run: |
+          echo "Simulation d'une erreur critique..."
+          # On simule un échec ici
+          exit 1 
+          # La ligne suivante ne sera jamais exécutée
+          mvn clean verify --file simple-api/pom.xml
 
   sonar-analysis:
     needs: test-backend
@@ -39,3 +46,41 @@ jobs:
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
             --file simple-api/pom.xml
+
+rollback-on-failure:
+    needs: [test-backend, sonar-analysis] # Se déclenche si un de ces jobs échoue
+    if: failure() && github.ref == 'refs/heads/main' # Uniquement sur erreur dans main
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Nécessaire pour faire un revert
+
+      - name: Create Rollback Branch and Revert
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Nom de la branche de secours
+          BRANCH_NAME="fix/rollback-failure-${{ github.run_number }}"
+          git checkout -b $BRANCH_NAME
+          
+          # Revert le dernier commit (celui qui a échoué)
+          git revert --no-edit HEAD
+          
+          # Push la branche de secours
+          git push origin $BRANCH_NAME
+          
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Create Pull Request
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: ${{ env.BRANCH_NAME }}
+          destination_branch: "main"
+          pr_title: "🚨 ROLLBACK: Build failed on main"
+          pr_body: "Le dernier push sur `main` a fait échouer la CI. Cette PR a été générée automatiquement pour restaurer le code à son état précédent stable."
+          github_token: ${{ secrets.GITHUB_TOKEN }}
