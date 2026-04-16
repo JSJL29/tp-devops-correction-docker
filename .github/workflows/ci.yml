@@ -18,8 +18,10 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
-      - name: Build and test with Maven
-        run: mvn clean verify --file simple-api/pom.xml
+      - name: Build and test with Maven (SIMULATION ERREUR)
+        run: |
+          echo "Simulation d'une erreur critique..."
+          exit 1 
 
   sonar-analysis:
     needs: test-backend
@@ -39,3 +41,38 @@ jobs:
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
             --file simple-api/pom.xml
+
+  rollback-on-failure:
+    needs: [test-backend, sonar-analysis]
+    if: failure() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Rollback Branch and Revert
+        id: revert_step
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          BRANCH_NAME="fix/rollback-failure-${{ github.run_number }}"
+          git checkout -b $BRANCH_NAME
+          
+          git revert --no-edit HEAD
+          git push origin $BRANCH_NAME
+          
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: ${{ steps.revert_step.outputs.BRANCH_NAME }}
+          destination_branch: "main"
+          pr_title: "🚨 ROLLBACK: Build failed on main"
+          pr_body: "Le dernier push sur `main` a fait échouer la CI. Cette PR restaure le code stable."
+          github_token: ${{ secrets.GITHUB_TOKEN }}
