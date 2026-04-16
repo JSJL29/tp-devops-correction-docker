@@ -1,12 +1,17 @@
-name: CI devops 2025
+name: CI CD devops 2026
 on:
   push:
     branches: 
       - main
+      - develop
+    tags:
+      - 'v*'
   pull_request:
 
 jobs:
-  # 1. TEST : Compilation et Tests unitaires
+  # ---------------------------------------------------------
+  # PARTIE 1 : CI - TEST ET QUALITÉ (S'exécute toujours)
+  # ---------------------------------------------------------
   test-backend:
     runs-on: ubuntu-24.04
     steps:
@@ -20,7 +25,6 @@ jobs:
       - name: Build and test with Maven
         run: mvn clean verify --file simple-api/pom.xml
 
-  # 2. ANALYSE : Qualité du code avec SonarCloud
   sonar-analysis:
     needs: test-backend
     runs-on: ubuntu-24.04
@@ -40,9 +44,14 @@ jobs:
             -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
             --file simple-api/pom.xml
 
-  # 3. DOCKER BACKEND
+  # ---------------------------------------------------------
+  # PARTIE 2 : CD - PUBLICATION DOCKER (Seulement sur main ou tags)
+  # ---------------------------------------------------------
+  
+  # JOB BACKEND
   build-and-push-backend:
     needs: sonar-analysis
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -52,12 +61,15 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./simple-api
-          push: ${{ github.ref == 'refs/heads/main' }}
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:${{ github.ref_name }}
 
-  # 4. DOCKER DATABASE
+  # JOB DATABASE
   build-and-push-database:
     needs: sonar-analysis
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -67,12 +79,15 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./database
-          push: ${{ github.ref == 'refs/heads/main' }}
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:${{ github.ref_name }}
 
-  # 5. DOCKER HTTP SERVER
+  # JOB HTTP SERVER
   build-and-push-httpd:
     needs: sonar-analysis
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -82,5 +97,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./http-server
-          push: ${{ github.ref == 'refs/heads/main' }}
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:${{ github.ref_name }}
