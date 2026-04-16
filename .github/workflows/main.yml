@@ -6,20 +6,32 @@ on:
   pull_request:
 
 jobs:
-  # PREMIER JOB : On teste le code Java
+  # 1. TEST : Compilation et Tests unitaires
   test-backend:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
+      - name: Build and test with Maven
+        run: mvn clean verify --file simple-api/pom.xml
 
-      - name: Build, test and analyze with Maven
+  # 2. ANALYSE : Qualité du code avec SonarCloud
+  sonar-analysis:
+    needs: test-backend
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: SonarCloud Scan
         run: |
           mvn -B verify sonar:sonar \
             -Dsonar.projectKey=JSJL29_tp-devops-correction-docker \
@@ -28,35 +40,47 @@ jobs:
             -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
             --file simple-api/pom.xml
 
-  # DEUXIÈME JOB : On build les images Docker
-  build-and-push-docker-image:
-    needs: test-backend
+  # 3. DOCKER BACKEND
+  build-and-push-backend:
+    needs: sonar-analysis
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Login to DockerHub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-
-      - name: Build image and push backend
+      - name: Build and push Backend
         uses: docker/build-push-action@v6
         with:
           context: ./simple-api
           push: ${{ github.ref == 'refs/heads/main' }}
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest
 
-      - name: Build image and push database
+  # 4. DOCKER DATABASE
+  build-and-push-database:
+    needs: sonar-analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+      - name: Build and push Database
         uses: docker/build-push-action@v6
         with:
           context: ./database
           push: ${{ github.ref == 'refs/heads/main' }}
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest
 
-      - name: Build image and push httpd
+  # 5. DOCKER HTTP SERVER
+  build-and-push-httpd:
+    needs: sonar-analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+      - name: Build and push HTTPD
         uses: docker/build-push-action@v6
         with:
           context: ./http-server
           push: ${{ github.ref == 'refs/heads/main' }}
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
-          
