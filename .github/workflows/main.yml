@@ -6,9 +6,13 @@ on:
       - develop
   pull_request:
 
+# Autorise le workflow à écrire des tags dans le repo
+permissions:
+  contents: write
+
 jobs:
   # ---------------------------------------------------------
-  # PARTIE 1 : CI - TOUJOURS EXÉCUTÉE (Tests & Sonar)
+  # PARTIE 1 : CI - TEST ET QUALITÉ (Toujours exécuté)
   # ---------------------------------------------------------
   test-backend:
     runs-on: ubuntu-24.04
@@ -43,12 +47,11 @@ jobs:
             --file simple-api/pom.xml
 
   # ---------------------------------------------------------
-  # PARTIE 2 : CD - PUBLICATION (UNIQUEMENT SUR MAIN)
+  # PARTIE 2 : CD - PUBLICATION (Uniquement sur MAIN)
   # ---------------------------------------------------------
   
   build-and-push-backend:
     needs: sonar-analysis
-    # Condition : on ne lance ce job QUE si on est sur la branche main
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
@@ -60,7 +63,6 @@ jobs:
         with:
           context: ./simple-api
           push: true
-          # Versioning auto : latest + numéro de run (ex: v24)
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:v${{ github.run_number }}
@@ -98,15 +100,22 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:v${{ github.run_number }}
-  
+
+  # ---------------------------------------------------------
+  # PARTIE 3 : TAGGING GITHUB (Après le succès du déploiement)
+  # ---------------------------------------------------------
   create-git-tag:
     needs: [build-and-push-backend, build-and-push-database, build-and-push-httpd]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Récupère tout l'historique pour pouvoir tagger
       - name: Create Git Tag
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag v${{ github.run_number }}
           git push origin v${{ github.run_number }}
         env:
