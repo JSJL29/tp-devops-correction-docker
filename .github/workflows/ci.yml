@@ -18,15 +18,15 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
-      - """name: Build and test with Maven
-        run: mvn clean verify --file simple-api/pom.xml"""
-        - name: Build and test with Maven (SIMULATION ERREUR)
+      - name: Build and test with Maven
+        run: mvn clean verify --file simple-api/pom.xml
+       """ - name: Build and test with Maven (SIMULATION ERREUR)
         run: |
           echo "Simulation d'une erreur critique..."
           # On simule un échec ici
           exit 1 
           # La ligne suivante ne sera jamais exécutée
-          mvn clean verify --file simple-api/pom.xml
+          mvn clean verify --file simple-api/pom.xml"""
 
   sonar-analysis:
     needs: test-backend
