@@ -4,13 +4,11 @@ on:
     branches: 
       - main
       - develop
-    tags:
-      - 'v*'
   pull_request:
 
 jobs:
   # ---------------------------------------------------------
-  # PARTIE 1 : CI - TEST ET QUALITÉ (S'exécute toujours)
+  # PARTIE 1 : CI - TOUJOURS EXÉCUTÉE (Tests & Sonar)
   # ---------------------------------------------------------
   test-backend:
     runs-on: ubuntu-24.04
@@ -45,13 +43,13 @@ jobs:
             --file simple-api/pom.xml
 
   # ---------------------------------------------------------
-  # PARTIE 2 : CD - PUBLICATION DOCKER (Seulement sur main ou tags)
+  # PARTIE 2 : CD - PUBLICATION (UNIQUEMENT SUR MAIN)
   # ---------------------------------------------------------
   
-  # JOB BACKEND
   build-and-push-backend:
     needs: sonar-analysis
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    # Condition : on ne lance ce job QUE si on est sur la branche main
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -62,14 +60,14 @@ jobs:
         with:
           context: ./simple-api
           push: true
+          # Versioning auto : latest + numéro de run (ex: v24)
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:${{ github.ref_name }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:v${{ github.run_number }}
 
-  # JOB DATABASE
   build-and-push-database:
     needs: sonar-analysis
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -82,12 +80,11 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:${{ github.ref_name }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:v${{ github.run_number }}
 
-  # JOB HTTP SERVER
   build-and-push-httpd:
     needs: sonar-analysis
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -100,4 +97,5 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:${{ github.ref_name }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:v${{ github.run_number }}
+          # changement
