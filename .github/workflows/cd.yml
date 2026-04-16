@@ -1,0 +1,72 @@
+name: Continuous Delivery
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  compute-version:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.versioning.outputs.NEW_TAG }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: versioning
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0")
+          VERSION=$(echo $LATEST_TAG | sed 's/v//')
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          NEW_MAJOR=$((MAJOR + 1))
+          NEW_TAG="v$NEW_MAJOR.0"
+          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_OUTPUT
+
+  build-and-push-docker:
+    needs: compute-version
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        component: [simple-api, database, http-server]
+        include:
+          - component: simple-api
+            image_name: tp-devops-simple-api
+            context: ./simple-api
+          - component: database
+            image_name: tp-devops-database
+            context: ./database
+          - component: http-server
+            image_name: tp-devops-httpd
+            context: ./http-server
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+      - name: Build and push ${{ matrix.component }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image_name }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image_name }}:${{ needs.compute-version.outputs.new_version }}
+
+  create-git-tag:
+    needs: [compute-version, build-and-push-docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create Git Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ needs.compute-version.outputs.new_version }}
+          git push origin ${{ needs.compute-version.outputs.new_version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
