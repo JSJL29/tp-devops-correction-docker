@@ -1,0 +1,9 @@
+---
+- name: Run Proxy
+  docker_container:
+    name: proxy
+    image: jsjllegoat/tp-devops-httpd:latest
+    ports:
+      - "80:80"
+    networks:
+      - name: app-network
