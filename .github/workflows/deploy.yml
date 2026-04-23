@@ -1,0 +1,31 @@
+name: Continuous Deployment
+on:
+  # On déploie seulement quand les images ont été buildées et pushées (workflow_run)
+  # Ou plus simplement, après un push sur la branche main
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Deploy with Ansible
+        env:
+          # On passe la clé SSH privée via les Secrets GitHub
+          ANSIBLE_HOST_KEY_CHECKING: 'false'
+        run: |
+          echo "${{ secrets.ANSIBLE_SSH_KEY }}" > id_rsa
+          chmod 600 id_rsa
+          ansible-playbook -i setup.yml playbook.yml --private-key id_rsa
