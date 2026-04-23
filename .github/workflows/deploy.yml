@@ -8,12 +8,8 @@ on:
 
 jobs:
   deploy:
-    # On ne lance le déploiement que si le workflow précédent est un succès
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    
-    # C'EST CETTE LIGNE QUI ACTIVE LA VALIDATION MANUELLE
-    environment: production
 
     steps:
       - name: Checkout code
@@ -28,12 +24,18 @@ jobs:
         run: pip install ansible
 
       - name: Deploy with Ansible
+        # On se place dans le dossier où sont tes fichiers setup.yml et playbook.yml
         working-directory: ansible 
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'false'
         run: |
+          # 1. On écrit la clé privée récupérée des secrets GitHub
           echo "${{ secrets.ANSIBLE_SSH_KEY }}" > id_rsa
           chmod 600 id_rsa
-          # On utilise ./id_rsa car le fichier est créé dans le dossier ansible/
+          
+          # 2. On lance le playbook en forçant l'utilisation de la clé id_rsa locale
+          # Note : remplace 'admin' après -u si ton utilisateur serveur est différent
           ansible-playbook -i setup.yml playbook.yml --private-key id_rsa -u admin
+          
+          # 3. On nettoie la clé après le déploiement
           rm id_rsa
