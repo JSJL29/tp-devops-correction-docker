@@ -1,7 +1,6 @@
 name: Continuous Deployment
 
 on:
-  # On ne lance le déploiement QUE si le workflow CD (build/tag) a réussi
   workflow_run:
     workflows: ["Continuous Delivery"]
     types:
@@ -9,10 +8,9 @@ on:
 
 jobs:
   deploy:
-    # On vérifie que le workflow précédent a réussi et n'a pas échoué
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,10 +24,13 @@ jobs:
         run: pip install ansible
 
       - name: Deploy with Ansible
+        # C'EST CETTE LIGNE QUI MANQUE :
+        working-directory: ansible 
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'false'
         run: |
           echo "${{ secrets.ANSIBLE_SSH_KEY }}" > id_rsa
           chmod 600 id_rsa
+          # On lance le playbook (on est déjà dans le dossier ansible grâce au working-directory)
           ansible-playbook -i setup.yml playbook.yml --private-key id_rsa
-          rm id_rsa # Sécurité : on supprime la clé après usage
+          rm id_rsa
