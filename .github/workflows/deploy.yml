@@ -37,3 +37,4 @@ jobs:
           # On utilise ./id_rsa car le fichier est créé dans le dossier ansible/
           ansible-playbook -i setup.yml playbook.yml --private-key id_rsa -u admin
           rm id_rsa
+          

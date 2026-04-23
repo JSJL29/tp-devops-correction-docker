@@ -2,10 +2,39 @@
 - hosts: all
   become: true
   vars:
+    # On s'assure d'utiliser le venv Python pour Docker
     ansible_python_interpreter: /opt/docker_venv/bin/python
+    # Remplace par ton vrai nom d'utilisateur DockerHub
+    dockerhub_username: "jsjl29" 
+
   roles:
-    - docker
-    - network
-    - database
-    - app
-    - proxy
+    - docker   # Installe Docker sur le serveur
+    - network  # Crée le réseau app-network
+
+  tasks:
+    # On déploie les briques de données en premier
+    - name: Deploy Database
+      include_role:
+        name: database
+
+    # On déploie le Backend
+    - name: Deploy Backend API
+      include_role:
+        name: app
+
+    # --- AJOUT DU FRONT-END ---
+    - name: Run Front-end Container
+      docker_container:
+        name: frontend
+        image: "{{ dockerhub_username }}/tp-devops-front:latest"
+        networks:
+          - name: app-network
+        pull: true
+        restart_policy: always
+        state: started
+
+    # Le Proxy (Apache) doit être déployé en DERNIER 
+    # car il a besoin que frontend et simple-api soient lancés pour fonctionner
+    - name: Deploy Proxy (HTTPD)
+      include_role:
+        name: proxy

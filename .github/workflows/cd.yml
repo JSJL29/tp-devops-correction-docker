@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        component: [simple-api, database, http-server]
+        component: [simple-api, database, http-server, devops-front-main]
         include:
           - component: simple-api
             image_name: tp-devops-simple-api
@@ -42,10 +42,15 @@ jobs:
           - component: http-server
             image_name: tp-devops-httpd
             context: ./http-server
+          - component: devops-front-main
+            image_name: tp-devops-front
+            context: ./devops-front-main
     steps:
       - uses: actions/checkout@v4
+
       - name: Login to DockerHub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
       - name: Build and push ${{ matrix.component }}
         uses: docker/build-push-action@v6
         with:
@@ -62,11 +67,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          
       - name: Create Git Tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Check if tag exists locally or remotely
+          
+          # On fetch les tags pour être sûr que rev-parse voit tout
+          git fetch --tags
+          
           if git rev-parse "${{ needs.compute-version.outputs.new_version }}" >/dev/null 2>&1; then
             echo "Tag ${{ needs.compute-version.outputs.new_version }} already exists. Skipping."
           else
@@ -75,5 +84,3 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          
