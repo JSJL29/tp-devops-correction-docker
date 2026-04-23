@@ -1,8 +1,9 @@
 all:
   vars:
     ansible_user: admin
-    ansible_ssh_private_key_file: /home/jacky/.ssh/id_rsa  # Ton chemin vers la clé
-    ansible_ssh_common_args: '-o StrictHostKeyChecking=no' # Optionnel : évite l'erreur d'empreinte de tout à l'heure
+    # On lui dit de regarder le fichier qu'on vient de créer avec le 'echo'
+    ansible_ssh_private_key_file: "./id_rsa" 
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
   children:
     prod:
       hosts:
