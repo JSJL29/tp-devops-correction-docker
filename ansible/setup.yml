@@ -1,9 +1,0 @@
-all:
-  vars:
-    ansible_user: admin
-    ansible_ssh_private_key_file: /home/jacky/.ssh/id_rsa  # Ton chemin vers la clé
-    ansible_ssh_common_args: '-o StrictHostKeyChecking=no' # Optionnel : évite l'erreur d'empreinte de tout à l'heure
-  children:
-    prod:
-      hosts:
-        jacky.shang.takima.school:

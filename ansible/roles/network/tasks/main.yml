@@ -1,3 +1,0 @@
-- name: Create docker network
-  docker_network:
-    name: app-network
