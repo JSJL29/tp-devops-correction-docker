@@ -24,13 +24,18 @@ jobs:
         run: pip install ansible
 
       - name: Deploy with Ansible
-        # C'EST CETTE LIGNE QUI MANQUE :
+        # On se place dans le dossier où sont tes fichiers setup.yml et playbook.yml
         working-directory: ansible 
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'false'
         run: |
+          # 1. On écrit la clé privée récupérée des secrets GitHub
           echo "${{ secrets.ANSIBLE_SSH_KEY }}" > id_rsa
           chmod 600 id_rsa
-          # On lance le playbook (on est déjà dans le dossier ansible grâce au working-directory)
-          ansible-playbook -i setup.yml playbook.yml --private-key id_rsa
+          
+          # 2. On lance le playbook en forçant l'utilisation de la clé id_rsa locale
+          # Note : remplace 'admin' après -u si ton utilisateur serveur est différent
+          ansible-playbook -i setup.yml playbook.yml --private-key id_rsa -u admin
+          
+          # 3. On nettoie la clé après le déploiement
           rm id_rsa
