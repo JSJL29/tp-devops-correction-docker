@@ -66,8 +66,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag ${{ needs.compute-version.outputs.new_version }}
-          git push origin ${{ needs.compute-version.outputs.new_version }}
+          # Check if tag exists locally or remotely
+          if git rev-parse "${{ needs.compute-version.outputs.new_version }}" >/dev/null 2>&1; then
+            echo "Tag ${{ needs.compute-version.outputs.new_version }} already exists. Skipping."
+          else
+            git tag ${{ needs.compute-version.outputs.new_version }}
+            git push origin ${{ needs.compute-version.outputs.new_version }}
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
