@@ -5,7 +5,7 @@
     # On s'assure d'utiliser le venv Python pour Docker
     ansible_python_interpreter: /opt/docker_venv/bin/python
     # Remplace par ton vrai nom d'utilisateur DockerHub
-    dockerhub_username: "jsjl29" 
+    dockerhub_username: "jsjllegoat" 
 
   roles:
     - docker   # Installe Docker sur le serveur
@@ -26,7 +26,7 @@
     - name: Run Front-end Container
       docker_container:
         name: frontend
-        image: "jsjl29/tp-devops-front:latest"
+        image: "jsjllegoat/tp-devops-front:latest"
         networks:
           - name: app-network
         pull: true
